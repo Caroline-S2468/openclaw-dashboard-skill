@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+
+{% block title %}Agents{% endblock %}
+{% block page_title %}Agents{% endblock %}
+
+{% block content %}
+<!-- Agent Stats -->
+<div class="stats-row">
+    <div class="stat-box">
+        <div class="stat-box-icon green">🟢</div>
+        <div class="stat-box-content">
+            <div class="stat-box-value" id="agents-online">-</div>
+            <div class="stat-box-label">Online</div>
+        </div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-box-icon blue">🔵</div>
+        <div class="stat-box-content">
+            <div class="stat-box-value" id="agents-busy">-</div>
+            <div class="stat-box-label">Busy</div>
+        </div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-box-icon orange">🟡</div>
+        <div class="stat-box-content">
+            <div class="stat-box-value" id="agents-idle">-</div>
+            <div class="stat-box-label">Idle</div>
+        </div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-box-icon gray">⚪</div>
+        <div class="stat-box-content">
+            <div class="stat-box-value" id="agents-offline">-</div>
+            <div class="stat-box-label">Offline</div>
+        </div>
+    </div>
+</div>
+
+<!-- Agents Grid -->
+<div class="agents-grid" id="agents-grid">
+    <!-- Agents will be loaded here dynamically -->
+    <div class="loading-state">
+        <span class="loading-icon">⏳</span>
+        <p>Loading agents...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.loading-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px;
+    color: var(--mc-text-muted);
+}
+
+.loading-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 16px;
+}
+
+.agent-card {
+    background: var(--mc-bg-card);
+    border: 1px solid var(--mc-border);
+    border-radius: var(--mc-radius-lg);
+    overflow: hidden;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.agent-card:hover {
+    border-color: var(--mc-border-light);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.agent-card-header {
+    position: relative;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--mc-bg-tertiary) 0%, var(--mc-bg-hover) 100%);
+    display: flex;
+    justify-content: center;
+}
+
+.agent-avatar-large {
+    font-size: 64px;
+    line-height: 1;
+}
+
+.agent-status-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+
+.agent-status-badge.online {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+.agent-status-badge.busy {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+}
+
+.agent-status-badge.idle {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.agent-status-badge.offline {
+    background: rgba(107, 114, 128, 0.15);
+    color: #6b7280;
+}
+
+.agent-card-body {
+    padding: 20px;
+}
+
+.agent-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--mc-text-primary);
+    margin-bottom: 4px;
+}
+
+.agent-role {
+    font-size: 13px;
+    color: var(--mc-text-muted);
+    margin-bottom: 12px;
+}
+
+.agent-current-task {
+    font-size: 12px;
+    color: var(--mc-text-secondary);
+    margin-bottom: 16px;
+}
+
+.agent-current-task span {
+    color: var(--mc-accent-purple);
+}
+
+.agent-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.agent-skills-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--mc-border);
+}
+
+.skills-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mc-text-muted);
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.agent-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.skill-pill {
+    font-size: 11px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, var(--mc-bg-tertiary) 0%, var(--mc-bg-hover) 100%);
+    color: var(--mc-text-secondary);
+    border-radius: 20px;
+    border: 1px solid var(--mc-border);
+    transition: all 0.2s;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.skill-pill:hover {
+    background: var(--mc-accent-purple);
+    color: white;
+    border-color: var(--mc-accent-purple);
+}
+
+.agent-card-footer {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--mc-border);
+    padding: 16px;
+    gap: 12px;
+}
+
+.agent-stat {
+    text-align: center;
+}
+
+.agent-stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--mc-text-primary);
+}
+
+.agent-stat-label {
+    font-size: 11px;
+    color: var(--mc-text-muted);
+}
+
+@media (max-width: 768px) {
+    .agents-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load agents from API
+async function loadAgents() {
+    try {
+        const response = await fetch('/api/agents');
+        const data = await response.json();
+        
+        if (data.success && data.agents) {
+            renderAgents(data.agents);
+            updateStats(data.agents);
+        } else {
+            showError('Failed to load agents');
+        }
+    } catch (error) {
+        console.error('Error loading agents:', error);
+        showError('Connection error');
+    }
+}
+
+function renderAgents(agents) {
+    const grid = document.getElementById('agents-grid');
+    
+    if (agents.length === 0) {
+        grid.innerHTML = `
+            <div class="loading-state">
+                <span class="loading-icon">🤖</span>
+                <p>No agents found</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort agents: Edgar first, then others alphabetically, laosun last
+    agents.sort((a, b) => {
+        // Edgar first
+        if (a.name === 'Edgar') return -1;
+        if (b.name === 'Edgar') return 1;
+        // 老孙/laosun last
+        const aIsLaosun = a.name.includes('老孙') || a.name.toLowerCase().includes('laosun');
+        const bIsLaosun = b.name.includes('老孙') || b.name.toLowerCase().includes('laosun');
+        if (aIsLaosun && !bIsLaosun) return 1;
+        if (!aIsLaosun && bIsLaosun) return -1;
+        // Others alphabetically
+        return a.name.localeCompare(b.name);
+    });
+    
+    grid.innerHTML = agents.map(agent => `
+        <div class="agent-card" data-agent-id="${agent.id}">
+            <div class="agent-card-header">
+                <div class="agent-avatar-large">${agent.avatar || '🤖'}</div>
+                <div class="agent-status-badge ${agent.status}">${agent.status}</div>
+            </div>
+            <div class="agent-card-body">
+                <h3 class="agent-name">${escapeHtml(agent.name)}</h3>
+                <p class="agent-role">${escapeHtml(agent.role || 'Agent')}</p>
+                <p class="agent-current-task">
+                    ${agent.current_task ? `Working on: <span>${escapeHtml(agent.current_task)}</span>` : 'Waiting for assignment...'}
+                </p>
+                <div class="agent-skills-section">
+                    <h4 class="skills-title">🛠️ Skills (${(agent.skills || []).length})</h4>
+                    <div class="agent-skills">
+                        ${(agent.skills || ['general']).map(skill => {
+                            const skillDisplayNames = {
+                                'general': 'General',
+                                'management': 'Management',
+                                'coordination': 'Coordination',
+                                'planning': 'Planning',
+                                'delegation': 'Delegation',
+                                'skill_management': 'Skill Management',
+                                'training': 'Training',
+                                'optimization': 'Optimization',
+                                'analysis': 'Analysis',
+                                'coding': 'Coding',
+                                'development': 'Development',
+                                'debugging': 'Debugging',
+                                'code_review': 'Code Review',
+                                'git': 'Git',
+                                'circularity': 'Circularity',
+                                'sustainability': 'Sustainability',
+                                'research': 'Research',
+                                'information_gathering': 'Information Gathering',
+                                'documentation': 'Documentation',
+                                'wisdom': 'Wisdom',
+                                'consulting': 'Consulting',
+                                'strategy': 'Strategy',
+                                'mentoring': 'Mentoring',
+                                'conversation': 'Conversation',
+                                'session': 'Session',
+                                'workspace': 'Workspace',
+                                'feishu': 'Feishu',
+                                'heartbeat': 'Heartbeat'
+                            };
+                            const displayName = skillDisplayNames[skill] || skill.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            return `<span class="skill-pill" title="${escapeHtml(skill)}">${escapeHtml(displayName)}</span>`;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="agent-card-footer">
+                <div class="agent-stat">
+                    <span class="agent-stat-value">${agent.total_tasks_completed || 0}</span>
+                    <span class="agent-stat-label">Tasks</span>
+                </div>
+                <div class="agent-stat">
+                    <span class="agent-stat-value">${agent.uptime_minutes ? formatDuration(agent.uptime_minutes) : '-'}</span>
+                    <span class="agent-stat-label">Uptime</span>
+                </div>
+                <div class="agent-stat">
+                    <span class="agent-stat-value">${formatTimeAgo(agent.last_heartbeat)}</span>
+                    <span class="agent-stat-label">Last Seen</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    // Add click handlers
+    document.querySelectorAll('.agent-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const agentId = this.dataset.agentId;
+            const agentName = this.querySelector('.agent-name').textContent;
+            showToast(`Viewing ${agentName}'s profile...`, 'info');
+        });
+    });
+}
+
+function updateStats(agents) {
+    const online = agents.filter(a => a.status === 'online').length;
+    const busy = agents.filter(a => a.status === 'busy').length;
+    const idle = agents.filter(a => a.status === 'idle').length;
+    const offline = agents.filter(a => a.status === 'offline').length;
+    
+    document.getElementById('agents-online').textContent = online;
+    document.getElementById('agents-busy').textContent = busy;
+    document.getElementById('agents-idle').textContent = idle;
+    document.getElementById('agents-offline').textContent = offline;
+}
+
+function showError(message) {
+    document.getElementById('agents-grid').innerHTML = `
+        <div class="loading-state">
+            <span class="loading-icon">⚠️</span>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDuration(minutes) {
+    if (minutes < 60) return `${minutes}m`;
+    if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
+    return `${Math.floor(minutes / 1440)}d`;
+}
+
+function formatTimeAgo(isoString) {
+    if (!isoString) return '-';
+    try {
+        const date = new Date(isoString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        if (seconds < 60) return 'now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+        return `${Math.floor(seconds / 86400)}d`;
+    } catch {
+        return '-';
+    }
+}
+
+// Load on page load
+loadAgents();
+
+// Refresh every 30 seconds
+setInterval(loadAgents, 30000);
+</script>
+{% endblock %}

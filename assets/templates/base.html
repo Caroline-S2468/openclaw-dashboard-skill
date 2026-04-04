@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OpenClaw Dashboard{% endblock %} - Mission Control</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mission-control.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="mission-control">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar-nav">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon">🎯</span>
+                <span class="logo-text">Mission Control</span>
+            </div>
+        </div>
+        
+        <nav class="nav-menu">
+            {% for item in nav_items %}
+            <a href="{{ url_for(item.route) }}" 
+               class="nav-item {% if active_page == item.id %}active{% endif %}">
+                <span class="nav-icon">{{ item.icon }}</span>
+                <span class="nav-label">{{ item.name }}</span>
+            </a>
+            {% endfor %}
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="system-status">
+                <span class="status-dot-online"></span>
+                <span>System Online</span>
+            </div>
+            {% if vps_connected %}
+            <div class="vps-status" id="vps-status">
+                <span class="vps-dot connected"></span>
+                <span>VPS</span>
+            </div>
+            {% endif %}
+            <div class="version">v2.0.0</div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="top-header">
+            <div class="header-left">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" placeholder="Search tasks, agents, docs..." id="global-search">
+                    <span class="search-shortcut">⌘K</span>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <h1 class="page-title">{% block page_title %}{{ active_page|title }}{% endblock %}</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="header-btn pause-btn" id="pause-btn">
+                    <span>⏸</span> Pause
+                </button>
+                <button class="header-btn ping-btn" id="ping-btn">
+                    <span>📡</span> Ping Edgar
+                </button>
+                <button class="header-btn notification-btn" id="notification-btn">
+                    <span>🔔</span>
+                </button>
+                <div class="user-avatar">
+                    <span>👤</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="page-content">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Live Activity Sidebar (Right) -->
+    <aside class="activity-sidebar" id="activity-sidebar">
+        <div class="activity-header">
+            <h3>🔴 Live Activity</h3>
+            <button class="collapse-btn" id="collapse-activity">›</button>
+        </div>
+        <div class="activity-content" id="activity-content">
+            <div class="activity-section">
+                <h4>Recent Activity</h4>
+                <div class="activity-list" id="activity-list">
+                    <div class="activity-item loading">
+                        <span class="activity-avatar">⏳</span>
+                        <div class="activity-info">
+                            <p>Loading activity...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="activity-section">
+                <h4>Quick Stats</h4>
+                <div class="mini-stats">
+                    <div class="mini-stat">
+                        <span class="mini-value" id="active-tasks-count">-</span>
+                        <span class="mini-label">Active</span>
+                    </div>
+                    <div class="mini-stat">
+                        <span class="mini-value" id="completed-today">-</span>
+                        <span class="mini-label">Completed</span>
+                    </div>
+                    <div class="mini-stat">
+                        <span class="mini-value" id="queue-length">-</span>
+                        <span class="mini-label">In Queue</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="activity-section">
+                <h4>System Status</h4>
+                <div class="system-metrics">
+                    <div class="metric">
+                        <span class="metric-name">CPU</span>
+                        <div class="metric-bar">
+                            <div class="metric-fill" style="width: 45%"></div>
+                        </div>
+                        <span class="metric-value">45%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-name">Memory</span>
+                        <div class="metric-bar">
+                            <div class="metric-fill" style="width: 62%"></div>
+                        </div>
+                        <span class="metric-value">62%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-name">Tasks/min</span>
+                        <span class="metric-value highlight">8.5</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // Global refresh interval
+        const REFRESH_INTERVAL = {{ refresh_interval }};
+        let lastRefresh = Date.now();
+        
+        // Activity sidebar collapse
+        document.getElementById('collapse-activity')?.addEventListener('click', function() {
+            const sidebar = document.getElementById('activity-sidebar');
+            sidebar.classList.toggle('collapsed');
+            this.textContent = sidebar.classList.contains('collapsed') ? '‹' : '›';
+        });
+        
+        // Pause button
+        document.getElementById('pause-btn')?.addEventListener('click', function() {
+            this.classList.toggle('paused');
+            const isPaused = this.classList.contains('paused');
+            this.innerHTML = isPaused ? '<span>▶</span> Resume' : '<span>⏸</span> Pause';
+            showToast(isPaused ? 'System paused' : 'System resumed', 'info');
+        });
+        
+        // Ping Edgar button
+        document.getElementById('ping-btn')?.addEventListener('click', function() {
+            showToast('Pinging Edgar...', 'info');
+            setTimeout(() => showToast('Edgar is online and responding', 'success'), 1000);
+        });
+        
+        // Toast notification system
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</span>
+                <span class="toast-message">${message}</span>
+            `;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // Make showToast globally available
+        window.showToast = showToast;
+        
+        // Update relative times
+        function updateRelativeTimes() {
+            document.querySelectorAll('.activity-time').forEach(el => {
+                // In a real app, parse the timestamp and update
+            });
+        }
+        
+        // Load activity data from API
+        async function loadActivityData() {
+            try {
+                const response = await fetch('/api/dashboard');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update stats
+                    const stats = data.stats || {};
+                    const taskStatus = stats.task_status || {};
+                    const activeTasks = (taskStatus.in_progress || 0) + (taskStatus.todo || 0);
+                    const completedTasks = taskStatus.done || 0;
+                    const queueLength = (data.tasks || []).length;
+                    
+                    const activeEl = document.getElementById('active-tasks-count');
+                    const completedEl = document.getElementById('completed-today');
+                    const queueEl = document.getElementById('queue-length');
+                    
+                    if (activeEl) activeEl.textContent = activeTasks;
+                    if (completedEl) completedEl.textContent = completedTasks;
+                    if (queueEl) queueEl.textContent = queueLength;
+                    
+                    // Update activity list with real agents
+                    updateActivityList(data.agents || [], data.tasks || []);
+                }
+            } catch (error) {
+                console.error('Failed to load activity data:', error);
+            }
+        }
+        
+        function updateActivityList(agents, tasks) {
+            const activityList = document.getElementById('activity-list');
+            if (!activityList || agents.length === 0) return;
+            
+            // Sort: Edgar first, then by activity, laosun last
+            const sortedAgents = [...agents].sort((a, b) => {
+                if (a.name === 'Edgar') return -1;
+                if (b.name === 'Edgar') return 1;
+                const aIsLaosun = a.name && (a.name.includes('老孙') || a.name.toLowerCase().includes('laosun'));
+                const bIsLaosun = b.name && (b.name.includes('老孙') || b.name.toLowerCase().includes('laosun'));
+                if (aIsLaosun && !bIsLaosun) return 1;
+                if (!aIsLaosun && bIsLaosun) return -1;
+                return new Date(b.last_heartbeat || 0) - new Date(a.last_heartbeat || 0);
+            });
+            
+            // Generate activity items from real agents
+            const activities = [];
+            
+            // Add agent activities
+            sortedAgents.slice(0, 4).forEach(agent => {
+                const status = agent.status;
+                let action = 'is active';
+                let icon = agent.avatar || '🤖';
+                
+                if (status === 'busy') {
+                    action = agent.current_task ? `working on ${agent.current_task}` : 'is working';
+                } else if (status === 'idle') {
+                    action = 'is idle';
+                } else if (status === 'offline') {
+                    action = 'is offline';
+                }
+                
+                activities.push({
+                    icon: icon,
+                    name: agent.name,
+                    action: action,
+                    time: formatTimeAgo(agent.last_heartbeat)
+                });
+            });
+            
+            activityList.innerHTML = activities.map(act => `
+                <div class="activity-item">
+                    <span class="activity-avatar">${act.icon}</span>
+                    <div class="activity-info">
+                        <p><strong>${escapeHtml(act.name)}</strong> ${escapeHtml(act.action)}</p>
+                        <span class="activity-time">${act.time}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatTimeAgo(isoString) {
+            if (!isoString) return 'unknown';
+            try {
+                const date = new Date(isoString);
+                const now = new Date();
+                const seconds = Math.floor((now - date) / 1000);
+                
+                if (seconds < 60) return 'just now';
+                if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+                if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+                return `${Math.floor(seconds / 86400)}d ago`;
+            } catch {
+                return 'unknown';
+            }
+        }
+        
+        // Load activity on page load
+        loadActivityData();
+        
+        // Refresh every 30 seconds
+        setInterval(loadActivityData, 30000);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

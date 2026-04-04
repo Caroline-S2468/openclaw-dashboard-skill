@@ -1,0 +1,22 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Deployment credentials (NEVER commit)
+.env
+.env.local
+deploy.env
+
+# Logs
+*.log
+logs/

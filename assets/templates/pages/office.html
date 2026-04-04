@@ -1,0 +1,647 @@
+{% extends "base.html" %}
+
+{% block title %}Office{% endblock %}
+{% block page_title %}Virtual Office{% endblock %}
+
+{% block content %}
+<div class="office-container" id="office-container">
+    <div class="loading-state">
+        <span class="loading-icon">🏢</span>
+        <p>Loading office...</p>
+    </div>
+</div>
+
+<div class="office-legend">
+    <div class="legend-item">
+        <span class="legend-dot working"></span>
+        <span>Working</span>
+    </div>
+    <div class="legend-item">
+        <span class="legend-dot idle"></span>
+        <span>Sleeping</span>
+    </div>
+    <div class="legend-item">
+        <span class="legend-dot offline"></span>
+        <span>Offline</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.office-container {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 16px;
+    padding: 30px;
+    min-height: 500px;
+}
+
+.office-floor {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 25px;
+}
+
+.desk-station {
+    background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+    border-radius: 12px;
+    padding: 15px;
+    border: 2px solid #4a5568;
+    position: relative;
+}
+
+.desk-station.working { border-color: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+.desk-station.idle { border-color: #f59e0b; }
+.desk-station.offline { border-color: #6b7280; opacity: 0.7; }
+
+.desk-header { text-align: center; margin-bottom: 8px; }
+.desk-name { font-weight: 600; color: #f9fafb; font-size: 13px; }
+.desk-role { font-size: 10px; color: #9ca3af; text-transform: uppercase; }
+
+/* Office scene */
+.office-scene {
+    background: linear-gradient(180deg, #1a202c 0%, #0d1117 100%);
+    border-radius: 8px;
+    height: 180px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #374151;
+}
+
+/* Floor */
+.floor {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+}
+
+/* ========== WORKING SETUP ========== */
+.work-setup {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 140px;
+}
+
+/* Desk - taller */
+.work-desk {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 130px;
+    height: 90px;
+}
+
+.work-desk-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+    background: linear-gradient(180deg, #6b7280 0%, #4b5563 100%);
+    border-radius: 3px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+
+.work-desk-leg {
+    position: absolute;
+    bottom: 0;
+    width: 10px;
+    height: 78px;
+    background: linear-gradient(90deg, #4b5563 0%, #374151 100%);
+}
+.work-desk-leg.left { left: 15px; }
+.work-desk-leg.right { right: 15px; }
+
+/* Computer - working (always glowing) */
+.work-computer {
+    position: absolute;
+    top: -48px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.work-monitor {
+    width: 60px;
+    height: 48px;
+    background: #111827;
+    border: 3px solid #10b981;
+    border-radius: 5px;
+    position: relative;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+}
+
+.work-screen {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    bottom: 4px;
+    background: linear-gradient(180deg, #064e3b 0%, #022c22 100%);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.work-screen::after {
+    content: '</>';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #34d399;
+    font-size: 16px;
+    font-family: monospace;
+    font-weight: bold;
+    animation: code-blink 1s infinite;
+}
+
+@keyframes code-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.work-monitor-base {
+    position: absolute;
+    bottom: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 10px;
+    background: #4b5563;
+    border-radius: 0 0 3px 3px;
+}
+
+.work-monitor-stand {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 35px;
+    height: 8px;
+    background: #374151;
+    border-radius: 2px;
+}
+
+/* Coffee cup */
+.work-coffee {
+    position: absolute;
+    top: -22px;
+    right: 25px;
+    font-size: 20px;
+}
+
+/* Person Working - TALL */
+.person-work {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 110px;
+    z-index: 10;
+    animation: work-bounce 0.5s ease-in-out infinite;
+}
+
+@keyframes work-bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-2px); }
+}
+
+.pw-head {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 24px;
+    background: #fca5a5;
+    border-radius: 50%;
+    border: 2px solid #f87171;
+}
+
+.pw-head.male::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -3px;
+    right: -3px;
+    height: 12px;
+    background: #1f2937;
+    border-radius: 12px 12px 0 0;
+}
+
+.pw-head.female::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: -5px;
+    right: -5px;
+    height: 14px;
+    background: #451a03;
+    border-radius: 14px 14px 4px 4px;
+}
+
+.pw-head.bald { background: #fca5a5; }
+
+.pw-body {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 45px;
+    border-radius: 10px 10px 5px 5px;
+}
+
+.pw-arm {
+    position: absolute;
+    top: 28px;
+    width: 10px;
+    height: 35px;
+    background: #fca5a5;
+    border-radius: 5px;
+    transform-origin: top center;
+}
+
+.pw-arm.left {
+    left: 6px;
+    transform: rotate(25deg);
+    animation: type-left 0.3s infinite;
+}
+
+.pw-arm.right {
+    right: 6px;
+    transform: rotate(-25deg);
+    animation: type-right 0.3s infinite;
+}
+
+@keyframes type-left {
+    0%, 100% { transform: rotate(25deg); }
+    50% { transform: rotate(35deg); }
+}
+
+@keyframes type-right {
+    0%, 100% { transform: rotate(-25deg); }
+    50% { transform: rotate(-35deg); }
+}
+
+.pw-leg {
+    position: absolute;
+    bottom: 0;
+    width: 12px;
+    height: 45px;
+    background: #1f2937;
+    border-radius: 0 0 5px 5px;
+}
+
+.pw-leg.left { left: 10px; }
+.pw-leg.right { right: 10px; }
+
+/* ========== SLEEPING SETUP ========== */
+.sleep-setup {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 160px;
+    height: 140px;
+}
+
+/* Bed */
+.bed {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 130px;
+    height: 50px;
+}
+
+.bed-frame {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 15px;
+    background: #4b5563;
+    border-radius: 3px;
+}
+
+.bed-leg {
+    position: absolute;
+    bottom: 0;
+    width: 8px;
+    height: 20px;
+    background: #374151;
+}
+.bed-leg.fl { left: 5px; }
+.bed-leg.fr { right: 5px; }
+
+.bed-mattress {
+    position: absolute;
+    bottom: 15px;
+    left: 5px;
+    right: 5px;
+    height: 20px;
+    background: #e5e7eb;
+    border-radius: 4px 4px 0 0;
+    border: 2px solid #d1d5db;
+}
+
+.bed-pillow {
+    position: absolute;
+    bottom: 30px;
+    left: 15px;
+    width: 30px;
+    height: 18px;
+    background: #fff;
+    border-radius: 8px;
+    border: 2px solid #e5e7eb;
+}
+
+.bed-blanket {
+    position: absolute;
+    bottom: 18px;
+    left: 45px;
+    right: 10px;
+    height: 25px;
+    background: #60a5fa;
+    border-radius: 5px;
+}
+
+/* Person Sleeping - on bed */
+.person-sleep {
+    position: absolute;
+    bottom: 35px;
+    left: 50px;
+    width: 80px;
+    height: 40px;
+    z-index: 10;
+    animation: sleep-breath 3s ease-in-out infinite;
+}
+
+@keyframes sleep-breath {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+.ps-head {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    background: #fca5a5;
+    border-radius: 50%;
+    border: 2px solid #f87171;
+}
+
+.ps-head.male::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -2px;
+    right: -2px;
+    height: 10px;
+    background: #1f2937;
+    border-radius: 11px 11px 0 0;
+}
+
+.ps-head.female::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: -4px;
+    right: -4px;
+    height: 12px;
+    background: #451a03;
+    border-radius: 12px 12px 3px 3px;
+}
+
+.ps-head.bald { background: #fca5a5; }
+
+.ps-body {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 50px;
+    height: 28px;
+    border-radius: 8px;
+}
+
+.ps-z1, .ps-z2, .ps-z3 {
+    position: absolute;
+    color: #cbd5e0;
+    font-weight: bold;
+    font-family: sans-serif;
+    opacity: 0;
+}
+
+.ps-z1 { top: -15px; left: 10px; font-size: 16px; animation: z-float 2.5s infinite; }
+.ps-z2 { top: -25px; left: 30px; font-size: 12px; animation: z-float 2.5s infinite 0.5s; }
+.ps-z3 { top: -35px; left: 50px; font-size: 9px; animation: z-float 2.5s infinite 1s; }
+
+@keyframes z-float {
+    0% { opacity: 0; transform: translate(0, 0); }
+    20% { opacity: 1; }
+    80% { opacity: 0.6; }
+    100% { opacity: 0; transform: translate(10px, -30px); }
+}
+
+/* Status */
+.desk-status {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.desk-status.working { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.desk-status.idle { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.desk-status.offline { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
+
+/* Task */
+.desk-task {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 11px;
+    color: #9ca3af;
+    min-height: 16px;
+}
+
+/* Legend */
+.office-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+    padding: 15px 20px;
+    background: #1f2937;
+    border-radius: 8px;
+    justify-content: center;
+}
+
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9ca3af; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.working { background: #10b981; box-shadow: 0 0 8px #10b981; }
+.legend-dot.idle { background: #f59e0b; }
+.legend-dot.offline { background: #6b7280; }
+
+.loading-state { text-align: center; padding: 100px; color: #9ca3af; }
+.loading-icon { font-size: 48px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const AGENTS = {
+    'Edgar':     { gender: 'male', color: '#3b82f6' },
+    'Anne':      { gender: 'female', color: '#8b5cf6' },
+    'Charlotte': { gender: 'female', color: '#ec4899' },
+    'Danny':     { gender: 'male', color: '#10b981' },
+    'Emily':     { gender: 'female', color: '#f59e0b' },
+    '老孙':       { gender: 'bald', color: '#6b7280' }
+};
+
+function getAgent(name) {
+    for (let key in AGENTS) {
+        if (name.includes(key)) return AGENTS[key];
+    }
+    return { gender: 'male', color: '#3b82f6' };
+}
+
+async function loadOffice() {
+    try {
+        const response = await fetch('/api/agents');
+        const data = await response.json();
+        if (data.success && data.agents) {
+            renderOffice(data.agents);
+        } else {
+            showError('Failed to load');
+        }
+    } catch (error) {
+        showError('Connection error');
+    }
+}
+
+function renderOffice(agents) {
+    const container = document.getElementById('office-container');
+    
+    if (!agents || agents.length === 0) {
+        container.innerHTML = '<div class="loading-state"><span class="loading-icon">🏢</span><p>Office empty</p></div>';
+        return;
+    }
+    
+    const order = { busy: 0, idle: 1, offline: 2 };
+    agents.sort((a, b) => order[a.status] - order[b.status]);
+    
+    let html = '<div class="office-floor">';
+    
+    for (const agent of agents) {
+        const isWorking = agent.status === 'busy';
+        const cfg = getAgent(agent.name);
+        const statusText = isWorking ? 'working' : 'sleeping';
+        const task = agent.current_task ? escapeHtml(agent.current_task) : (isWorking ? 'Coding...' : '💤 Sleeping');
+        
+        let sceneHtml;
+        
+        if (isWorking) {
+            // Working setup - desk + computer + standing person
+            sceneHtml = `
+                <div class="work-setup">
+                    <div class="work-desk">
+                        <div class="work-desk-top"></div>
+                        <div class="work-desk-leg left"></div>
+                        <div class="work-desk-leg right"></div>
+                        
+                        <div class="work-computer">
+                            <div class="work-monitor">
+                                <div class="work-screen"></div>
+                            </div>
+                            <div class="work-monitor-base"></div>
+                            <div class="work-monitor-stand"></div>
+                        </div>
+                        
+                        <div class="work-coffee">☕</div>
+                    </div>
+                    
+                    <div class="person-work">
+                        <div class="pw-head ${cfg.gender}"></div>
+                        <div class="pw-body" style="background: ${cfg.color};"></div>
+                        <div class="pw-arm left"></div>
+                        <div class="pw-arm right"></div>
+                        <div class="pw-leg left"></div>
+                        <div class="pw-leg right"></div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Sleeping setup - bed + lying person
+            sceneHtml = `
+                <div class="sleep-setup">
+                    <div class="bed">
+                        <div class="bed-frame"></div>
+                        <div class="bed-leg fl"></div>
+                        <div class="bed-leg fr"></div>
+                        <div class="bed-mattress"></div>
+                        <div class="bed-pillow"></div>
+                        <div class="bed-blanket"></div>
+                    </div>
+                    
+                    <div class="person-sleep">
+                        <div class="ps-head ${cfg.gender}"></div>
+                        <div class="ps-body" style="background: ${cfg.color};"></div>
+                        <div class="ps-z1">Z</div>
+                        <div class="ps-z2">z</div>
+                        <div class="ps-z3">z</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += `
+            <div class="desk-station ${agent.status}">
+                <div class="desk-status ${agent.status}">${statusText}</div>
+                <div class="desk-header">
+                    <div class="desk-name">${escapeHtml(agent.name)}</div>
+                    <div class="desk-role">${escapeHtml(agent.role || 'Agent')}</div>
+                </div>
+                <div class="office-scene">
+                    <div class="floor"></div>
+                    ${sceneHtml}
+                </div>
+                <div class="desk-task">${task}</div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function showError(msg) {
+    document.getElementById('office-container').innerHTML = '<div class="loading-state"><span class="loading-icon">⚠️</span><p>' + msg + '</p></div>';
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+loadOffice();
+setInterval(loadOffice, 30000);
+</script>
+{% endblock %}

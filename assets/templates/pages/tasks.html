@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks{% endblock %}
+{% block page_title %}Mission Control{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="stats-row">
+    <div class="stat-box">
+        <div class="stat-box-icon blue">📊</div>
+        <div class="stat-box-content">
+            <div class="stat-box-value" id="stat-total">-</div>
+            <div class="stat-box-label">Total Tasks</div>
+        </div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-box-icon purple">⚡</div>
+        <div class="stat-box-content">
+            <div class="stat-box-value" id="stat-progress">-</div>
+            <div class="stat-box-label">In Progress</div>
+        </div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-box-icon green">✓</div>
+        <div class="stat-box-content">
+            <div class="stat-box-value" id="stat-done">-</div>
+            <div class="stat-box-label">Completed</div>
+        </div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-box-icon orange">📈</div>
+        <div class="stat-box-content">
+            <div class="stat-box-value" id="stat-rate">-</div>
+            <div class="stat-box-label">Completion Rate</div>
+        </div>
+    </div>
+</div>
+
+<!-- Kanban Board -->
+<div class="kanban-container" id="kanban-board">
+    <div class="loading-state">
+        <span class="loading-icon">⏳</span>
+        <p>Loading tasks...</p>
+    </div>
+</div>
+
+<!-- Task Status Rules -->
+<div class="task-rules-panel" style="margin: 20px 0; padding: 15px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; border-left: 4px solid #3b82f6;">
+    <h4 style="margin: 0 0 10px 0; color: #f9fafb; font-size: 14px;">📋 任务状态判定规则</h4>
+    <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280;">Workspace 文件任务根据修改时间自动判定状态：</p>
+    <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+        <tr style="background: #111827;"><td style="padding: 6px; border: 1px solid #374151;">&lt; 60 分钟</td><td style="padding: 6px; border: 1px solid #374151;"><span style="color: #3b82f6; font-weight: bold;">In Progress (70%)</span></td></tr>
+        <tr style="background: #1f2937;"><td style="padding: 6px; border: 1px solid #374151;">60-120 分钟</td><td style="padding: 6px; border: 1px solid #374151;"><span style="color: #3b82f6;">In Progress (50%)</span></td></tr>
+        <tr style="background: #111827;"><td style="padding: 6px; border: 1px solid #374151;">2-4 小时</td><td style="padding: 6px; border: 1px solid #374151;"><span style="color: #6b7280;">To Do (30%)</span></td></tr>
+        <tr style="background: #1f2937;"><td style="padding: 6px; border: 1px solid #374151;">&gt; 4 小时</td><td style="padding: 6px; border: 1px solid #374151;"><span style="color: #6b7280;">不显示</span></td></tr>
+    </table>
+    <p style="margin: 8px 0 0 0; font-size: 11px; color: #6b7280;">💡 Delivery Queue 任务：Failed = 重试5次仍失败的任务</p>
+
+
+<!-- Task Detail Modal -->
+<div id="task-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="modal-content" style="background: #1f2937; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; border: 1px solid #374151;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #374151; display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="modal-title" style="margin: 0; color: #f9fafb; font-size: 18px;">Task Detail</h3>
+            <button onclick="closeModal()" style="background: none; border: none; color: #9ca3af; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <div id="modal-content" style="color: #d1d5db;"></div>
+        </div>
+    </div>
+</div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load tasks from API
+async function loadTasks() {
+    try {
+        const response = await fetch('/api/tasks');
+        const data = await response.json();
+        
+        if (data.success && data.tasks) {
+            window.currentTasks = data.tasks;
+            renderKanban(data.tasks);
+            updateStats(data.tasks);
+        } else {
+            showError('Failed to load tasks');
+        }
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+        showError('Connection error');
+    }
+}
+
+function renderKanban(tasks) {
+    const container = document.getElementById('kanban-board');
+    
+    if (tasks.length === 0) {
+        container.innerHTML = `
+            <div class="loading-state">
+                <span class="loading-icon">📋</span>
+                <p>No tasks found</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Group tasks by status
+    const columns = {
+        'todo': { title: 'Backlog', dot: 'backlog', tasks: [] },
+        'in_progress': { title: 'In Progress', dot: 'progress', tasks: [] },
+        'done': { title: 'Done', dot: 'done', tasks: [] },
+        'stuck': { title: 'Failed', dot: 'review', tasks: [] }
+    };
+    
+    tasks.forEach(task => {
+        const status = task.status || 'todo';
+        if (columns[status]) {
+            columns[status].tasks.push(task);
+        } else {
+            columns['todo'].tasks.push(task);
+        }
+    });
+    
+    container.innerHTML = Object.entries(columns).map(([status, col]) => `
+        <div class="kanban-column" data-status="${status}">
+            <div class="column-title">
+                <span class="column-dot ${col.dot}"></span>
+                <span>${col.title}</span>
+                <span class="column-count">${col.tasks.length}</span>
+            </div>
+            <div class="column-cards">
+                ${col.tasks.map(task => `
+                    <div class="mc-card" data-task-id="${task.id}">
+                        <div class="mc-card-header">
+                            <span class="mc-badge ${task.priority || 'medium'}">${task.priority || 'medium'}</span>
+                            <span class="mc-card-agent">${task.agent_id || 'Unassigned'}</span>
+                        </div>
+                        <div class="mc-card-title">${escapeHtml(task.title)}</div>
+                        <div class="mc-card-desc">${escapeHtml(task.description || '').substring(0, 100)}</div>
+                        <div class="mc-card-tags">
+                            ${(task.skills_required || []).slice(0, 3).map(skill => 
+                                `<span class="mc-tag">${escapeHtml(skill)}</span>`
+                            ).join('')}
+                        </div>
+                        <div class="mc-card-footer">
+                            <div class="mc-progress">
+                                <div class="mc-progress-bar">
+                                    <div class="mc-progress-fill" style="width: ${task.progress || 0}%"></div>
+                                </div>
+                                <span class="mc-progress-text">${task.progress || 0}%</span>
+                            </div>
+                            <span class="mc-card-time">${formatTime(task.created_at)}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+    
+    // Add click handlers
+    document.querySelectorAll('.mc-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const taskId = this.dataset.taskId;
+            const task = window.currentTasks ? window.currentTasks.find(t => t.id == taskId) : null;
+            if (task) {
+                openTaskModal(task);
+            } else {
+                showToast(`Task #${taskId} not found`, 'error');
+            }
+        });
+    });
+}
+
+function openTaskModal(task) {
+    document.getElementById('modal-title').textContent = `Task #${task.id}`;
+    const content = document.getElementById('modal-content');
+    content.innerHTML = `
+        <div style="margin-bottom: 15px;">
+            <span style="display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; text-transform: uppercase; font-weight: bold; background: ${getStatusColor(task.status)}; color: white;">${task.status}</span>
+            <span style="display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; margin-left: 8px; background: ${getPriorityColor(task.priority)}; color: white;">${task.priority}</span>
+        </div>
+        <h4 style="color: #f9fafb; margin: 0 0 10px 0;">${escapeHtml(task.title)}</h4>
+        <p style="color: #9ca3af; margin: 0 0 15px 0; line-height: 1.5;">${escapeHtml(task.description || 'No description')}</p>
+        <div style="background: #111827; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="margin-bottom: 8px;"><strong style="color: #6b7280;">Agent:</strong> <span style="color: #d1d5db;">${task.agent_id || 'Unassigned'}</span></div>
+            <div style="margin-bottom: 8px;"><strong style="color: #6b7280;">Progress:</strong> <span style="color: #d1d5db;">${task.progress || 0}%</span></div>
+            <div style="margin-bottom: 8px;"><strong style="color: #6b7280;">Created:</strong> <span style="color: #d1d5db;">${formatTime(task.created_at)}</span></div>
+            <div><strong style="color: #6b7280;">Updated:</strong> <span style="color: #d1d5db;">${formatTime(task.updated_at)}</span></div>
+        </div>
+        <div style="margin-bottom: 15px;">
+            <strong style="color: #6b7280; display: block; margin-bottom: 8px;">Skills Required:</strong>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                ${(task.skills_required || []).map(s => `<span style="background: #374151; color: #d1d5db; padding: 3px 8px; border-radius: 4px; font-size: 11px;">${escapeHtml(s)}</span>`).join('') || '<span style="color: #6b7280;">None</span>'}
+            </div>
+        </div>
+    `;
+    document.getElementById('task-modal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('task-modal').style.display = 'none';
+}
+
+function getStatusColor(status) {
+    const colors = { todo: '#6b7280', in_progress: '#3b82f6', done: '#10b981', stuck: '#ef4444' };
+    return colors[status] || '#6b7280';
+}
+
+function getPriorityColor(priority) {
+    const colors = { low: '#6b7280', medium: '#f59e0b', high: '#f97316', critical: '#ef4444' };
+    return colors[priority] || '#6b7280';
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'task-modal') closeModal();
+});
+function updateStats(tasks) {
+    const total = tasks.length;
+    const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+    const done = tasks.filter(t => t.status === 'done').length;
+    const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+    
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-progress').textContent = inProgress;
+    document.getElementById('stat-done').textContent = done;
+    document.getElementById('stat-rate').textContent = rate + '%';
+}
+
+function showError(message) {
+    document.getElementById('kanban-board').innerHTML = `
+        <div class="loading-state">
+            <span class="loading-icon">⚠️</span>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatTime(isoString) {
+    if (!isoString) return '-';
+    try {
+        const date = new Date(isoString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        if (seconds < 60) return 'now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        return `${Math.floor(seconds / 86400)}d ago`;
+    } catch {
+        return '-';
+    }
+}
+
+// Load on page load
+loadTasks();
+
+// Refresh every 30 seconds
+setInterval(loadTasks, 30000);
+</script>
+{% endblock %}
